@@ -1,11 +1,8 @@
 name: CI / test
 
-
-
 on:
   pull_request:
-    branches: [ dev ]  # PR 대상이 dev일 때만 실행
-
+    branches: [ dev, main ]  # PR 대상이 dev일 때만 실행
 
 jobs:
   test:
