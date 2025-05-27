@@ -1,0 +1,23 @@
+# docker compose up -d db
+services:
+  db:
+    image: mysql:8.0
+    container_name: dev-i_mean-mysql
+    ports:
+      - "9915:3306" # MySQL 포트를 환경 변수로 관리
+    profiles:
+      - "dev"
+    environment:
+      MYSQL_ROOT_PASSWORD: 1234
+      MYSQL_DATABASE: i_mean
+    volumes:
+      - dev-i_mean-data:/var/lib/mysql
+    networks:
+      - dev-i_mean-network
+
+volumes:
+  dev-i_mean-data:
+
+networks:
+  dev-i_mean-network:
+    driver: bridge
