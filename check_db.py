@@ -5,7 +5,7 @@ from sqlalchemy import text
 
 async def check_sessions_table():
     # MySQL 연결 URL
-    DATABASE_URL = "mysql+aiomysql://root:1234@localhost/imean"
+    DATABASE_URL = "mysql+aiomysql://gorilla:gorilla@localhost/i_mean"
     
     engine = create_async_engine(DATABASE_URL, echo=True)
     

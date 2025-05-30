@@ -2,7 +2,6 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query, H
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select # select 추가
 import json
-import asyncio
 from datetime import datetime
 import traceback
 
@@ -174,118 +173,96 @@ async def websocket_endpoint(
 
         try:
             while True:
-                data = await websocket.receive_text()
-                message_data = json.loads(data)
-                print(f"[WS_ROUTER_ENDPOINT] User {user_id} in room {room_id} RECEIVED: {message_data}")
-                
-                # 메시지 처리 시에는 항상 최신의 '현재 진행 중인 세션'에 기록
+                data = await websocket.receive_json()
+                print(f"[WS_ROUTER_ENDPOINT] User {user_id} in room {room_id} RECEIVED: {data}")
+
+                # 1) ping/pong 메시지 처리 (content 없이도 OK)
+                if data.get("type") == "ping":
+                    await websocket.send_json({"type": "pong"})
+                    continue
+
+                # 항상 최신 세션 조회
                 session_for_new_message = await current_session_manager.get_current_session(room_id)
 
-                if message_data.get("type") == "response":
+                # 응답 타입 처리
+                if data.get("type") == "response":
                     if not session_for_new_message:
-                        print(f"[WS_ROUTER_ENDPOINT] User {user_id} - WARNING: No active session to process response: {message_data}")
                         await websocket.send_json({"type": "error", "content": "No active session to respond to."})
                         continue
-                    
-                    response_content_str = message_data.get("content")
-                    is_yes = response_content_str == "네" if isinstance(response_content_str, str) else False
+                    resp = data.get("content", "")
+                    is_yes = (resp == "네")
                     await current_session_manager.add_session_response(room_id, user_id, is_yes, db)
                     continue
-                
-                if session_for_new_message:
-                    # speaker 결정 로직을 명확히 하기 위해 user_id와 세션의 user_a_id, user_b_id 비교
-                    speaker_type_for_log = SpeakerType.UNKNOWN # 기본값 또는 오류 상황 대비
-                    print(f"[WS_ROUTER_DEBUG] Determining speaker type - User ID: {user_id}, Session User A: {session_for_new_message.user_a_id}, Session User B: {session_for_new_message.user_b_id}")
-                    
-                    if user_id == str(session_for_new_message.user_a_id):
-                        speaker_type_for_log = SpeakerType.A
-                        print(f"[WS_ROUTER_DEBUG] User {user_id} identified as Speaker A")
-                    elif user_id == str(session_for_new_message.user_b_id):
-                        speaker_type_for_log = SpeakerType.B
-                        print(f"[WS_ROUTER_DEBUG] User {user_id} identified as Speaker B")
-                    else:
-                        print(f"[WS_ROUTER_DEBUG] User {user_id} could not be identified as either speaker")
-                    
-                    if speaker_type_for_log == SpeakerType.UNKNOWN:
-                         print(f"[WS_ROUTER_WARNING] Could not determine speaker type for user {user_id} in session {session_for_new_message.session_id}. UserA: {session_for_new_message.user_a_id}, UserB: {session_for_new_message.user_b_id}")
-                         # 이 경우 메시지를 저장하지 않거나, 특별한 처리를 할 수 있음
 
-                    print(f"[WS_ROUTER_DEBUG] Creating chat log - Room: {room_id}, Session: {session_for_new_message.session_id}, Speaker: {speaker_type_for_log.value}")
+                # 일반 메시지 처리
+                if session_for_new_message:
+                    # speaker 결정
+                    if user_id == str(session_for_new_message.user_a_id):
+                        speaker = SpeakerType.A
+                    elif user_id == str(session_for_new_message.user_b_id):
+                        speaker = SpeakerType.B
+                    else:
+                        speaker = SpeakerType.UNKNOWN
+
+                    # content 안전 추출
+                    content = data.get("content", "")
+                    if not content.strip():
+                        print(f"[WS_ROUTER_WARNING] Empty or missing content from user {user_id}, skip logging")
+                        continue
+
+                    # DB에 저장
                     chat_log = ChatLog(
                         room_id=room_id,
                         session_id=session_for_new_message.session_id,
-                        role=RoleType.USER, # 사용자가 보낸 메시지
-                        speaker=speaker_type_for_log,
-                        content=message_data["content"],
+                        role=RoleType.USER,
+                        speaker=speaker,
+                        content=content,
                         timestamp=datetime.utcnow()
                     )
                     db.add(chat_log)
                     await db.commit()
-                    print(f"[WS_ROUTER_DEBUG] Chat log saved successfully - Room: {room_id}, Session: {session_for_new_message.session_id}")
 
-                    broadcast_message = {
-                        "type": "message",
-                        "user_id": user_id, # 실제 발신자 user_id
-                        "content": message_data["content"],
-                        "timestamp": chat_log.timestamp.isoformat(), # DB 저장된 시간 사용
-                        "session_id": session_for_new_message.session_id,
-                        "role": RoleType.USER.value 
-                    }
-                    await current_connection_manager.broadcast_to_room(room_id, broadcast_message)
-                else:
-                    print(f"[WS_ROUTER_INFO] No active session for room {room_id} to log message. Broadcasting without logging. Content: {message_data.get('content')}")
-                    # 세션 없이 브로드캐스트 (일반적으로는 발생하지 않거나, 다른 방식으로 처리해야 함)
-                    broadcast_message = {
+                    # 브로드캐스트
+                    await current_connection_manager.broadcast_to_room(room_id, {
                         "type": "message",
                         "user_id": user_id,
-                        "content": message_data.get("content"),
-                        "timestamp": datetime.utcnow().isoformat()
-                    }
-                    await current_connection_manager.broadcast_to_room(room_id, broadcast_message)
-                
-        except WebSocketDisconnect:
-            print(f"[WS_ROUTER_DEBUG] WebSocket disconnected by client - Room: {room_id}, User: {user_id}")
-        except json.JSONDecodeError:
-            print(f"[WS_ROUTER_ERROR] Invalid JSON received from user {user_id} in room {room_id}.")
-            # data 변수 로깅은 생략 (민감 정보 포함 가능성)
-            await websocket.send_json({"type": "error", "content": "Invalid JSON format."})
-        except Exception as e:
-            print(f"[WS_ROUTER_ERROR] Error processing message from user {user_id} in room {room_id}: {str(e)}")
-            traceback.print_exc()
-            # 에러 발생 시 연결을 유지할지, 닫을지 결정 필요
-            # await websocket.send_json({"type": "error", "content": "An error occurred."})
-        finally:
-            print(f"[WS_ROUTER_DEBUG] Cleaning up for user {user_id} in room {room_id} (finally block).")
-            # message_task 관련 로직은 ConnectionManager에서 처리하므로 여기서는 제거됨
+                        "content": content,
+                        "timestamp": chat_log.timestamp.isoformat(),
+                        "session_id": session_for_new_message.session_id,
+                        "role": RoleType.USER.value
+                    })
 
-            await current_connection_manager.disconnect(room_id, user_id) # disconnect 호출 위치 변경 (예외 발생 시도 호출되도록)
-            
-            active_connections_in_room_after_disconnect = current_connection_manager.get_active_connections_for_room(room_id)
-            remaining_users_count = len(active_connections_in_room_after_disconnect)
-            print(f"[WS_ROUTER_DEBUG] User {user_id} disconnected. Remaining users in room {room_id}: {remaining_users_count}")
-            
-            if remaining_users_count == 0:
-                print(f"[WS_ROUTER_DEBUG] Last user disconnected from room {room_id}. Attempting to end session via SessionManager.")
-                # 마지막 사용자가 나가면 현재 활성 세션을 종료 시도
-                session_to_end = await current_session_manager.get_current_session(room_id)
-                if session_to_end:
-                     await current_session_manager.end_session_for_room(room_id, db) # end_session_for_room은 room_id를 받음
                 else:
-                    print(f"[WS_ROUTER_DEBUG] No active session found by SM to end for room {room_id} upon last user disconnect.")
-            
+                    # 세션 없음(보통 발생하지 않음)
+                    content = data.get("content", "")
+                    if not content.strip():
+                        continue
+                    await current_connection_manager.broadcast_to_room(room_id, {
+                        "type": "message",
+                        "user_id": user_id,
+                        "content": content,
+                        "timestamp": datetime.utcnow().isoformat()
+                    })
+
+        except WebSocketDisconnect:
+            # 클라이언트 종료 처리
+            pass
+
     except HTTPException as he:
-        print(f"[WS_ROUTER_ERROR] WebSocket connection failed due to HTTPException for room {room_id}: {he.detail} (user: {user_id if 'user_id' in locals() else 'unknown'})")
         if websocket.client_state == websocket.client_state.CONNECTED:
-             await websocket.close(code=1011) 
-    except Exception as e_outer:
-        error_user_id_outer = user_id if 'user_id' in locals() else 'unknown_user'
-        print(f"[WS_ROUTER_CRITICAL_ERROR] Unhandled exception in websocket_endpoint for room {room_id}, user {error_user_id_outer}: {str(e_outer)}")
-        # 연결이 이미 끊어졌을 수 있으므로 상태 확인 후 close
-        if 'websocket' in locals() and websocket.client_state == websocket.client_state.CONNECTED:
+            await websocket.close(code=1011)
+    except Exception as outer:
+        # 에러 발생 시 안전하게 종료
+        if websocket.client_state == websocket.client_state.CONNECTED:
             try:
-                await websocket.close(code=1011) # Internal error
-            except Exception as e_close_on_error:
-                print(f"[WS_ROUTER_CRITICAL_ERROR] Failed to close websocket for user {error_user_id_outer} after outer exception: {e_close_on_error}")
-        # disconnect는 여기서도 호출해주는 것이 안전할 수 있음 (이미 finally에 있지만)
-        if 'current_connection_manager' in locals() and 'room_id' in locals() and 'user_id' in locals():
-            await current_connection_manager.disconnect(room_id, user_id)
+                await websocket.close(code=1011)
+            except:
+                pass
+    finally:
+        # disconnect & 세션 종료 로직
+        await current_connection_manager.disconnect(room_id, user_id)
+        remaining = len(current_connection_manager.get_active_connections_for_room(room_id))
+        if remaining == 0:
+            sess = await current_session_manager.get_current_session(room_id)
+            if sess:
+                await current_session_manager.end_session_for_room(room_id, db)

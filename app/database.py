@@ -22,8 +22,7 @@ from .config import settings
 from .models.base import Base
 from sqlalchemy import text
 
-# MySQL 연결 URL 직접 구성
-DATABASE_URL = f"mysql+aiomysql://root:1234@localhost/imean"
+DATABASE_URL = f"mysql+aiomysql://gorilla:gorilla@localhost/i_mean"
 
 engine = create_async_engine(
     DATABASE_URL,
@@ -52,32 +51,45 @@ async def get_db():
         finally:
             await session.close()
 
-# 데이터베이스 초기화 함수
+# ✅ 컬럼 존재 여부 확인 함수
+async def column_exists(conn, table_name: str, column_name: str) -> bool:
+    result = await conn.execute(text("""
+        SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = 'i_mean'
+          AND TABLE_NAME = :table_name
+          AND COLUMN_NAME = :column_name
+    """), {"table_name": table_name, "column_name": column_name})
+    return result.scalar_one() > 0
+
+# ✅ 데이터베이스 초기화 함수
 async def init_db():
     async with engine.begin() as conn:
-        # 기존 테이블이 있다면 삭제 (이 부분을 주석 처리하거나 삭제하여 데이터 유실 방지)
-        # await conn.run_sync(Base.metadata.drop_all)
-        
-        # 테이블 생성 (없는 테이블만 생성)
         await conn.run_sync(Base.metadata.create_all)
-        
-        # is_active 컬럼이 없다면 추가
-        try:
+
+        # rooms 테이블 컬럼들 추가
+        if not await column_exists(conn, "rooms", "is_active"):
             await conn.execute(text("""
-                ALTER TABLE rooms 
-                ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
-                ADD COLUMN IF NOT EXISTS created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                ADD COLUMN IF NOT EXISTS updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ALTER TABLE rooms ADD COLUMN is_active BOOLEAN DEFAULT TRUE
             """))
-        except Exception as e:
-            print(f"Error adding columns to rooms: {e}")
-            
-        # extension_used 컬럼이 없다면 추가
-        try:
+
+        if not await column_exists(conn, "rooms", "created_at"):
             await conn.execute(text("""
-                ALTER TABLE sessions 
-                ADD COLUMN IF NOT EXISTS extension_used BOOLEAN DEFAULT FALSE
+                ALTER TABLE rooms ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             """))
+
+        if not await column_exists(conn, "rooms", "updated_at"):
+            await conn.execute(text("""
+                ALTER TABLE rooms ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            """))
+
+        # sessions 테이블 컬럼 추가
+        if not await column_exists(conn, "sessions", "extension_used"):
+            await conn.execute(text("""
+                ALTER TABLE sessions ADD COLUMN extension_used BOOLEAN DEFAULT FALSE
+            """))
+<<<<<<< HEAD
         except Exception as e:
             print(f"Error adding extension_used column to sessions: {e}") 
 >>>>>>> 7ce7d69 (채팅로직구현)
+=======
+>>>>>>> d78a7b5 ([fix] content 타입 오류 및 기타 오류 해결)
