@@ -3,9 +3,10 @@ from sqlalchemy.orm import sessionmaker
 from .config import settings
 from .models.base import Base
 from sqlalchemy import text
+import os
 
 # MySQL 연결 URL 직접 구성
-DATABASE_URL = f"mysql+aiomysql://root:1234@localhost/imean"
+DATABASE_URL = os.getenv("DB_URL")
 
 engine = create_async_engine(
     DATABASE_URL,

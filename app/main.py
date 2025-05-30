@@ -42,4 +42,12 @@ async def startup_event():
 if __name__ == "__main__":
     import uvicorn
     # reload=True는 개발 중에만 사용하고, 프로덕션에서는 False로 설정하거나 uvicorn 옵션에서 제거합니다.
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True) 
+    # uvicorn.run(app, host="0.0.0.0", port=8000, reload=True) 
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=8000, 
+        reload=True,
+        ws_ping_interval=None,  # 웹소켓 ping 비활성화
+        ws_ping_timeout=None    # 웹소켓 ping 타임아웃 비활성화
+    )
