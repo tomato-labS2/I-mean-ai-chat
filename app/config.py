@@ -1,11 +1,7 @@
-from pydantic_settings import BaseSettings
-from typing import Optional
-import os
 from dotenv import load_dotenv
-from fastapi import WebSocket
-import asyncio
+load_dotenv(dotenv_path=".env.dev")
 
-load_dotenv()
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # 데이터베이스 설정

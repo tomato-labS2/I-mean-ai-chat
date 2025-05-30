@@ -1,11 +1,9 @@
 import asyncio
-import aiomysql
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
 import os
 
 async def check_sessions_table():
-
     # MySQL 연결 URL을 환경변수에서 읽음
     DATABASE_URL = os.getenv("DB_URL")
     if not DATABASE_URL:
