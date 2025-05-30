@@ -1,13 +1,11 @@
-from pydantic_settings import BaseSettings
-from typing import Optional
-import os
 from dotenv import load_dotenv
+load_dotenv(dotenv_path=".env.dev")
 
-load_dotenv()
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # 데이터베이스 설정
-    DATABASE_URL: str = "mysql+aiomysql://gorilla:gorilla@localhost:3306/i_mean"
+    DB_URL: str  # 기본값 제거, 반드시 .env에서 읽음
     
     # JWT 설정
     SECRET_KEY: str = "myVerySecureJwtSecretKeyThatShouldBeAtLeast256BitsLongForHS256Algorithm1234567890"  # 실제 운영환경에서는 환경변수로 관리해야 합니다
