@@ -19,18 +19,18 @@ class RoleType(enum.Enum):
 class User(Base):
     __tablename__ = "users"
     
-    user_id = Column(Integer, primary_key=True, index=True)
-    username = Column(String(50), unique=True, index=True, nullable=False)
-    password_hash = Column(String(128), nullable=False)
-    email = Column(String(100), unique=True, index=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    user_id = Column(Integer, primary_key=True)
+    # username = Column(String(50), unique=True, index=True, nullable=False)
+    # password_hash = Column(String(128), nullable=False)
+    # email = Column(String(100), unique=True, index=True, nullable=False)
+    # created_at = Column(DateTime, default=datetime.utcnow)
+    # updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    def set_password(self, password: str):
-        self.password_hash = generate_password_hash(password)
+    # def set_password(self, password: str):
+    #     self.password_hash = generate_password_hash(password)
         
-    def verify_password(self, password: str) -> bool:
-        return check_password_hash(self.password_hash, password)
+    # def verify_password(self, password: str) -> bool:
+    #     return check_password_hash(self.password_hash, password)
 
 class Room(Base, TimestampMixin):
     __tablename__ = "rooms"
