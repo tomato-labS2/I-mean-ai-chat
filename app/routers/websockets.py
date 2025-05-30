@@ -4,6 +4,8 @@ from sqlalchemy import select # select 추가
 import json
 from datetime import datetime
 import traceback
+import logging
+from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
 
 from ..database import get_db
 from ..models.chat import Room, Session, ChatLog, SpeakerType, RoleType # User 모델은 여기서 직접 사용 안함
@@ -173,96 +175,155 @@ async def websocket_endpoint(
 
         try:
             while True:
-                data = await websocket.receive_json()
-                print(f"[WS_ROUTER_ENDPOINT] User {user_id} in room {room_id} RECEIVED: {data}")
+                try:
+                    data = await websocket.receive_json()
+                    print(f"[WS_ROUTER_ENDPOINT] User {user_id} in room {room_id} RECEIVED: {data}")
 
-                # 1) ping/pong 메시지 처리 (content 없이도 OK)
-                if data.get("type") == "ping":
-                    await websocket.send_json({"type": "pong"})
-                    continue
-
-                # 항상 최신 세션 조회
-                session_for_new_message = await current_session_manager.get_current_session(room_id)
-
-                # 응답 타입 처리
-                if data.get("type") == "response":
-                    if not session_for_new_message:
-                        await websocket.send_json({"type": "error", "content": "No active session to respond to."})
+                    # 1) ping/pong 메시지 처리 (content 없이도 OK)
+                    if data.get("type") == "ping":
+                        await websocket.send_json({"type": "pong"})
                         continue
-                    resp = data.get("content", "")
-                    is_yes = (resp == "네")
-                    await current_session_manager.add_session_response(room_id, user_id, is_yes, db)
-                    continue
 
-                # 일반 메시지 처리
-                if session_for_new_message:
-                    # speaker 결정
-                    if user_id == str(session_for_new_message.user_a_id):
-                        speaker = SpeakerType.A
-                    elif user_id == str(session_for_new_message.user_b_id):
-                        speaker = SpeakerType.B
+                    # 항상 최신 세션 조회
+                    session_for_new_message = await current_session_manager.get_current_session(room_id)
+
+                    # 응답 타입 처리
+                    if data.get("type") == "response":
+                        if not session_for_new_message:
+                            await websocket.send_json({"type": "error", "content": "No active session to respond to."})
+                            continue
+                        resp = data.get("content", "")
+                        is_yes = (resp == "네")
+                        await current_session_manager.add_session_response(room_id, user_id, is_yes, db)
+                        continue
+
+                    # 일반 메시지 처리
+                    if session_for_new_message:
+                        # speaker 결정
+                        if user_id == str(session_for_new_message.user_a_id):
+                            speaker = SpeakerType.A
+                        elif user_id == str(session_for_new_message.user_b_id):
+                            speaker = SpeakerType.B
+                        else:
+                            speaker = SpeakerType.UNKNOWN
+
+                        # content 안전 추출
+                        content = data.get("content", "")
+                        if not content.strip():
+                            print(f"[WS_ROUTER_WARNING] Empty or missing content from user {user_id}, skip logging")
+                            continue
+
+                        # DB에 저장
+                        chat_log = ChatLog(
+                            room_id=room_id,
+                            session_id=session_for_new_message.session_id,
+                            role=RoleType.USER,
+                            speaker=speaker,
+                            content=content,
+                            timestamp=datetime.utcnow()
+                        )
+                        db.add(chat_log)
+                        await db.commit()
+
+                        # 브로드캐스트
+                        await current_connection_manager.broadcast_to_room(room_id, {
+                            "type": "message",
+                            "user_id": user_id,
+                            "content": content,
+                            "timestamp": chat_log.timestamp.isoformat(),
+                            "session_id": session_for_new_message.session_id,
+                            "role": RoleType.USER.value
+                        })
+
                     else:
-                        speaker = SpeakerType.UNKNOWN
+                        # 세션 없음(보통 발생하지 않음)
+                        content = data.get("content", "")
+                        if not content.strip():
+                            continue
+                        await current_connection_manager.broadcast_to_room(room_id, {
+                            "type": "message",
+                            "user_id": user_id,
+                            "content": content,
+                            "timestamp": datetime.utcnow().isoformat()
+                        })
 
-                    # content 안전 추출
-                    content = data.get("content", "")
-                    if not content.strip():
-                        print(f"[WS_ROUTER_WARNING] Empty or missing content from user {user_id}, skip logging")
-                        continue
+                except ConnectionClosedError as cce:
+                    print(f"[WS_ROUTER_ERROR] Connection closed unexpectedly - Room: {room_id}, User: {user_id}, Code: {cce.code}, Reason: {cce.reason}")
+                    logging.error(f"WebSocket connection closed error: Room {room_id}, User {user_id}, Code: {cce.code}, Reason: {cce.reason}")
+                    break
 
-                    # DB에 저장
-                    chat_log = ChatLog(
-                        room_id=room_id,
-                        session_id=session_for_new_message.session_id,
-                        role=RoleType.USER,
-                        speaker=speaker,
-                        content=content,
-                        timestamp=datetime.utcnow()
-                    )
-                    db.add(chat_log)
-                    await db.commit()
+                except ConnectionClosedOK as cco:
+                    print(f"[WS_ROUTER_INFO] Connection closed normally - Room: {room_id}, User: {user_id}, Code: {cco.code}, Reason: {cco.reason}")
+                    logging.info(f"WebSocket connection closed normally: Room {room_id}, User {user_id}, Code: {cco.code}, Reason: {cco.reason}")
+                    break
 
-                    # 브로드캐스트
-                    await current_connection_manager.broadcast_to_room(room_id, {
-                        "type": "message",
-                        "user_id": user_id,
-                        "content": content,
-                        "timestamp": chat_log.timestamp.isoformat(),
-                        "session_id": session_for_new_message.session_id,
-                        "role": RoleType.USER.value
-                    })
+                except json.JSONDecodeError as jde:
+                    print(f"[WS_ROUTER_ERROR] Invalid JSON received - Room: {room_id}, User: {user_id}, Error: {str(jde)}")
+                    logging.error(f"JSON decode error in WebSocket: Room {room_id}, User {user_id}, Error: {str(jde)}")
+                    try:
+                        await websocket.send_json({"type": "error", "content": "Invalid message format"})
+                    except Exception:
+                        break
 
-                else:
-                    # 세션 없음(보통 발생하지 않음)
-                    content = data.get("content", "")
-                    if not content.strip():
-                        continue
-                    await current_connection_manager.broadcast_to_room(room_id, {
-                        "type": "message",
-                        "user_id": user_id,
-                        "content": content,
-                        "timestamp": datetime.utcnow().isoformat()
-                    })
+                except Exception as msg_error:
+                    print(f"[WS_ROUTER_ERROR] Error processing message - Room: {room_id}, User: {user_id}, Error: {str(msg_error)}")
+                    logging.error(f"Message processing error: Room {room_id}, User {user_id}, Error: {str(msg_error)}")
+                    traceback.print_exc()
+                    try:
+                        await websocket.send_json({"type": "error", "content": "Message processing failed"})
+                    except Exception:
+                        break
 
-        except WebSocketDisconnect:
-            # 클라이언트 종료 처리
-            pass
+        except WebSocketDisconnect as wd:
+            print(f"[WS_ROUTER_INFO] Client disconnected normally - Room: {room_id}, User: {user_id}, Code: {wd.code}, Reason: {getattr(wd, 'reason', 'No reason provided')}")
+            logging.info(f"WebSocket client disconnected: Room {room_id}, User {user_id}, Code: {wd.code}")
 
     except HTTPException as he:
+        print(f"[WS_ROUTER_ERROR] HTTP Exception during WebSocket connection - Room: {room_id}, User: {user_id}, Status: {he.status_code}, Detail: {he.detail}")
+        logging.error(f"HTTP Exception in WebSocket: Room {room_id}, User {user_id}, Status: {he.status_code}, Detail: {he.detail}")
         if websocket.client_state == websocket.client_state.CONNECTED:
-            await websocket.close(code=1011)
+            try:
+                await websocket.close(code=1011, reason="Authentication failed")
+            except Exception as close_error:
+                print(f"[WS_ROUTER_ERROR] Failed to close WebSocket after HTTP error - Room: {room_id}, User: {user_id}, Error: {str(close_error)}")
+
+    except ConnectionClosedError as cce:
+        print(f"[WS_ROUTER_ERROR] Top-level connection error - Room: {room_id}, User: {user_id}, Code: {cce.code}, Reason: {cce.reason}")
+        logging.error(f"Top-level WebSocket connection error: Room {room_id}, User {user_id}, Code: {cce.code}, Reason: {cce.reason}")
+
+    except ConnectionClosedOK as cco:
+        print(f"[WS_ROUTER_INFO] Top-level connection closed normally - Room: {room_id}, User: {user_id}, Code: {cco.code}, Reason: {cco.reason}")
+        logging.info(f"Top-level WebSocket connection closed normally: Room {room_id}, User {user_id}, Code: {cco.code}, Reason: {cco.reason}")
+
     except Exception as outer:
+        print(f"[WS_ROUTER_ERROR] Unexpected top-level error - Room: {room_id}, User: {user_id}, Error: {str(outer)}")
+        logging.error(f"Unexpected top-level WebSocket error: Room {room_id}, User {user_id}, Error: {str(outer)}")
+        traceback.print_exc()
         # 에러 발생 시 안전하게 종료
         if websocket.client_state == websocket.client_state.CONNECTED:
             try:
-                await websocket.close(code=1011)
-            except:
-                pass
+                await websocket.close(code=1011, reason="Internal server error")
+            except Exception as close_error:
+                print(f"[WS_ROUTER_ERROR] Failed to close WebSocket after error - Room: {room_id}, User: {user_id}, Error: {str(close_error)}")
+                logging.error(f"Failed to close WebSocket after error: Room {room_id}, User {user_id}, Error: {str(close_error)}")
+
     finally:
-        # disconnect & 세션 종료 로직
-        await current_connection_manager.disconnect(room_id, user_id)
-        remaining = len(current_connection_manager.get_active_connections_for_room(room_id))
-        if remaining == 0:
-            sess = await current_session_manager.get_current_session(room_id)
-            if sess:
-                await current_session_manager.end_session_for_room(room_id, db)
+        try:
+            # disconnect & 세션 종료 로직
+            print(f"[WS_ROUTER_CLEANUP] Starting cleanup for Room: {room_id}, User: {user_id}")
+            await current_connection_manager.disconnect(room_id, user_id)
+            remaining = len(current_connection_manager.get_active_connections_for_room(room_id))
+            print(f"[WS_ROUTER_CLEANUP] Remaining connections in room {room_id}: {remaining}")
+            
+            if remaining == 0:
+                sess = await current_session_manager.get_current_session(room_id)
+                if sess:
+                    print(f"[WS_ROUTER_CLEANUP] Ending session {sess.session_id} for empty room {room_id}")
+                    await current_session_manager.end_session_for_room(room_id, db)
+            
+            print(f"[WS_ROUTER_CLEANUP] Cleanup completed for Room: {room_id}, User: {user_id}")
+            
+        except Exception as cleanup_error:
+            print(f"[WS_ROUTER_ERROR] Error during cleanup - Room: {room_id}, User: {user_id}, Error: {str(cleanup_error)}")
+            logging.error(f"WebSocket cleanup error: Room {room_id}, User {user_id}, Error: {str(cleanup_error)}")
+            traceback.print_exc()
