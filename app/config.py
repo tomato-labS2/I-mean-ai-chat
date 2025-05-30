@@ -7,7 +7,7 @@ load_dotenv()
 
 class Settings(BaseSettings):
     # 데이터베이스 설정
-    DATABASE_URL: str = "mysql+aiomysql://root:1234@localhost:3306/imean"
+    DATABASE_URL: str = "mysql+aiomysql://gorilla:gorilla@localhost:3306/i_mean"
     
     # JWT 설정
     SECRET_KEY: str = "myVerySecureJwtSecretKeyThatShouldBeAtLeast256BitsLongForHS256Algorithm1234567890"  # 실제 운영환경에서는 환경변수로 관리해야 합니다

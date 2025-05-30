@@ -5,6 +5,12 @@ from ..models import Log
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from datetime import datetime
+from ..models import Session as SessionModel  # 충돌 방지용 별칭
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from ..models import Session as SessionModel
+from ..models import Couple
+from sqlalchemy import or_
 
 async def process_message(websocket: WebSocket, data: dict, room_id: int, user_id: str, db: AsyncSession):
     try:
@@ -106,7 +112,7 @@ async def websocket_endpoint(
     room_id: int,
     user_id: str,
     session_id: Optional[str] = Query(None),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     try:
         print(f"[WS_ROUTER_ENDPOINT] Connecting User {user_id} to room {room_id}")
@@ -115,17 +121,17 @@ async def websocket_endpoint(
         # 기존 세션 ID가 있는 경우 해당 세션의 유효성 검증
         current_session = None
         if session_id:
-            current_session = validate_session(db, room_id, session_id)
+            current_session = await validate_session(db, room_id, session_id)
         
         # 유효한 세션이 없으면 새 세션 생성
         if not current_session:
-            current_session = create_new_session(db, room_id, user_id)
+            current_session = await create_new_session(db, room_id, user_id)
             session_id = current_session.id
         
         await manager.connect(websocket, room_id, user_id)
         
         # 이전 메시지 히스토리 조회
-        previous_messages = get_chat_history(db, room_id, session_id)
+        previous_messages = await get_chat_history(db, room_id, session_id)
         
         # 세션 정보와 이전 메시지 전송
         await manager.broadcast_to_room(
@@ -165,15 +171,18 @@ async def websocket_endpoint(
         print(f"[WS_ROUTER_DEBUG] User {user_id} disconnected. Remaining users in room {room_id}: {remaining_users}")
         if remaining_users == 0:
             print(f"[WS_ROUTER_DEBUG] Last user disconnected from room {room_id}. Attempting to end session via SessionManager.")
-            await end_session(db, room_id)
+            await websocket.app.state.session_manager.end_session_for_room(room_id, db)
 
-def get_chat_history(db: Session, room_id: int, session_id: str):
-    """해당 세션의 이전 채팅 메시지 조회"""
-    messages = db.query(Log).filter(
+
+async def get_chat_history(db: AsyncSession, room_id: int, session_id: str):
+    stmt = select(Log).where(
         Log.room_id == room_id,
         Log.session_id == session_id
-    ).order_by(desc(Log.created_at)).all()
-    
+    ).order_by(Log.created_at.desc())
+
+    result = await db.execute(stmt)
+    messages = result.scalars().all()
+
     return [
         {
             "type": "message",
@@ -184,12 +193,53 @@ def get_chat_history(db: Session, room_id: int, session_id: str):
         for msg in messages
     ]
 
-def validate_session(db: Session, room_id: int, session_id: str):
-    """세션 유효성 검증"""
-    return db.query(Session).filter(
-        Session.id == session_id,
-        Session.room_id == room_id,
-        Session.is_active == True
-    ).first()
+async def validate_session(db: AsyncSession, room_id: int, session_id: str):
+    stmt = select(SessionModel).where(
+        SessionModel.id == session_id,
+        SessionModel.room_id == room_id,
+        SessionModel.is_active == True
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def create_new_session(
+    db: AsyncSession,
+    room_id: int,
+    user_id: int,
+    topic: str = "topic_1_situation"
+) -> SessionModel:
+    # ① 커플 조회: user_id가 포함된 커플 1건 가져오기
+    result = await db.execute(
+        select(Couple).where(
+            or_(
+                Couple.user_a_id == user_id,
+                Couple.user_b_id == user_id
+            )
+        )
+    )
+    couple = result.scalar_one_or_none()
+    if not couple:
+        raise ValueError(f"No couple found for user_id {user_id}")
+
+    # ② 커플의 양쪽 ID 설정
+    user_a_id = couple.user_a_id
+    user_b_id = couple.user_b_id
+
+    # ③ 세션 생성
+    new_session = SessionModel(
+        room_id=room_id,
+        user_a_id=user_a_id,
+        user_b_id=user_b_id,
+        topic=topic,
+        is_active=True,
+        extension_used=False
+    )
+    db.add(new_session)
+    await db.commit()
+    await db.refresh(new_session)
+    return new_session
+
+
 
 # ... rest of the code ... 

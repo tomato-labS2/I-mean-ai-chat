@@ -5,6 +5,7 @@ from typing import Dict, Optional, Callable, Awaitable, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from .models.chat import Session # Session 모델 import
 from .config import settings # 설정값 import
+from sqlalchemy import update
 
 # 타입 힌팅을 위한 정의
 BroadcasterType = Callable[[int, dict, Optional[str]], Awaitable[None]]
