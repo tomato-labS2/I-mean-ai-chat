@@ -10,8 +10,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "mysql+aiomysql://root:1234@localhost:3306/imean"
     
     # JWT 설정
-    SECRET_KEY: str = "your-secret-key-here"  # 실제 운영환경에서는 환경변수로 관리해야 합니다
-    ALGORITHM: str = "HS256"
+    SECRET_KEY: str = "myVerySecureJwtSecretKeyThatShouldBeAtLeast256BitsLongForHS256Algorithm1234567890"  # 실제 운영환경에서는 환경변수로 관리해야 합니다
+    ALGORITHM: str = "HS512"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24시간
     
     # 세션 설정

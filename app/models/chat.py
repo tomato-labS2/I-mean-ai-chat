@@ -9,6 +9,7 @@ class SpeakerType(enum.Enum):
     A = "A"
     B = "B"
     AI = "AI"
+    UNKNOWN = "UNKNOWN"
 
 class RoleType(enum.Enum):
     USER = "user"
