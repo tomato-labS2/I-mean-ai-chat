@@ -24,7 +24,7 @@ async def save_log_message(db: AsyncSession, room_id: int, session_id: int, role
         emotion_flagged=emotion_flagged,
         detected_emotions=detected_emotions
     )
-    db.add(log_entry)
+    await db.add(log_entry)
     await db.commit()
     await db.refresh(log_entry)
     return log_entry
