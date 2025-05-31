@@ -23,6 +23,7 @@ from sqlalchemy import update
 =======
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from .routers import report as report_router #추가
 
 from .database import init_db
 from .config import settings # settings는 다른 모듈에서도 필요할 수 있으므로 유지
@@ -73,6 +74,7 @@ app.add_middleware(
 # 라우터 등록
 app.include_router(rooms_router.router)
 app.include_router(websockets_router.router) # 웹소켓 라우터 등록
+app.include_router(report_router.router, prefix="/reports", tags=["Reports"])  # 추가
 
 # 애플리케이션 시작 시 데이터베이스 초기화
 @app.on_event("startup")
