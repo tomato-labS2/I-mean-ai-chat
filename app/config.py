@@ -2,6 +2,8 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path=".env.dev")
 
 from pydantic_settings import BaseSettings
+from fastapi import WebSocket
+import asyncio
 
 class Settings(BaseSettings):
     # 데이터베이스 설정
