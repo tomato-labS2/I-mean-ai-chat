@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -24,8 +23,13 @@ async def websocket_endpoint(
 ):
     current_connection_manager = websocket.app.state.connection_manager
     current_session_manager = websocket.app.state.session_manager
-    redis_client = websocket.app.state.redis
-    emotion_service = EmotionService(redis_client)
+    # redis_client = websocket.app.state.redis # <--- 주석 처리
+    # if not redis_client: # <--- 이 조건 블록 전체 주석 처리
+    #     print("[WS_ROUTER_ERROR] Redis client not available in app.state. Cannot initialize EmotionService.")
+    #     await websocket.close(code=1011, reason="Internal server error: Redis not configured")
+    #     return
+
+    emotion_service = EmotionService()
 
     try:
         payload = await verify_token(token)
@@ -72,7 +76,7 @@ async def websocket_endpoint(
                 session_users = session_id_to_user_map.get(log_entry.session_id)
                 if log_entry.role == RoleType.USER and session_users:
                     message["user_id"] = session_users["user_a_id"] if log_entry.speaker == SpeakerType.A else session_users["user_b_id"]
-                elif log_entry.role == RoleType.AI:
+                elif log_entry.role == RoleType.ASSISTANT:
                     message["user_id"] = "AI"
                 else:
                     message["user_id"] = str(log_entry.speaker.value) if log_entry.speaker else log_entry.role.value
@@ -125,18 +129,7 @@ async def websocket_endpoint(
                     if not content.strip():
                         continue
 
-                    # 감정 키워드 감지
-                    detected = await emotion_service.handle_emotion_message(
-                        room_id=room_id,
-                        user_id=user_id,
-                        message=content
-                    )
-                    if detected:
-                        await websocket.send_json({
-                            "type": "notice",
-                            "content": f"⚠ 감정 키워드('{detected}')가 감지되었습니다. 감정보다는 상황에 집중해주세요."
-                        })
-
+                    # 사용자 메시지 DB 저장 및 브로드캐스트 (기존 로직)
                     chat_log = ChatLog(
                         room_id=room_id,
                         session_id=current_active_session.session_id,
@@ -146,16 +139,50 @@ async def websocket_endpoint(
                         timestamp=datetime.utcnow()
                     )
                     db.add(chat_log)
-                    await db.commit()
+                    await db.commit() # 사용자 메시지 먼저 저장
 
                     await current_connection_manager.broadcast_to_room(room_id, {
                         "type": "message",
-                        "user_id": user_id,
+                        "user_id": user_id, # 실제 사용자 ID
                         "content": content,
                         "timestamp": chat_log.timestamp.isoformat(),
                         "session_id": current_active_session.session_id,
                         "role": RoleType.USER.value
                     })
+
+                    # 감정 키워드 감지 및 GPT 응답 처리
+                    gpt_response_content = None
+                    if current_active_session: # 현재 활성 세션이 있을 때만 GPT 호출 로직 고려
+                        gpt_response_content = await emotion_service.handle_emotion_message(
+                            room_id=room_id,
+                            user_id=user_id, 
+                            message=content,
+                            session_topic=current_active_session.topic  # 현재 세션의 토픽 전달
+                        )
+
+                    if gpt_response_content:
+                        # GPT 응답을 AI 메시지로 DB에 저장 (선택적이지만 권장)
+                        ai_chat_log = ChatLog(
+                            room_id=room_id,
+                            session_id=current_active_session.session_id,
+                            role=RoleType.ASSISTANT.value,  # RoleType.AI 대신 RoleType.ASSISTANT 사용
+                            speaker=SpeakerType.AI,       # SpeakerType.AI 로 스피커 명시
+                            content=gpt_response_content,
+                            timestamp=datetime.utcnow()
+                        )
+                        db.add(ai_chat_log)
+                        await db.commit() # AI 메시지 저장
+
+                        # GPT 응답을 방 전체에 브로드캐스트
+                        await current_connection_manager.broadcast_to_room(room_id, {
+                            "type": "message", # 사용자 메시지와 동일한 타입 사용
+                            "user_id": "AI",  # AI가 보낸 메시지임을 명시 (또는 SpeakerType.AI.value)
+                            "content": gpt_response_content,
+                            "timestamp": ai_chat_log.timestamp.isoformat(), # 저장된 시간 사용
+                            "session_id": current_active_session.session_id,
+                            "role": RoleType.ASSISTANT.value  # RoleType.AI 대신 RoleType.ASSISTANT 사용
+                        })
+                        print(f"[WS_ROUTER_GPT_BROADCAST] Room {room_id} - AI message broadcasted: {gpt_response_content}")
 
             except WebSocketDisconnect:
                 break

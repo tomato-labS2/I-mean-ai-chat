@@ -13,7 +13,7 @@ from ..models.models import User
 router = APIRouter()
 
 # 보안 설정
-SECRET_KEY = "RV4qqhylUFsMW8OwcFXjEd4NfyHiwIalp14j9H5pCPCDs/nFXKbTs+dOJQTxkIKPHJX0i78oae1ZLmRPjkd+LQ=="  # 실제 운영 환경에서는 환경 변수로 관리해야 합니다
+SECRET_KEY = "your-secret-key"  # 실제 운영 환경에서는 환경 변수로 관리해야 합니다
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 

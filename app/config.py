@@ -8,7 +8,8 @@ import asyncio
 class Settings(BaseSettings):
     # 데이터베이스 설정
     DB_URL: str  # 기본값 제거, 반드시 .env에서 읽음
-    
+    REDIS_URL : str = "redis://localhost:6379"
+
     # JWT 설정
     SECRET_KEY: str = "RV4qqhylUFsMW8OwcFXjEd4NfyHiwIalp14j9H5pCPCDs/nFXKbTs+dOJQTxkIKPHJX0i78oae1ZLmRPjkd+LQ=="  # 실제 운영환경에서는 환경변수로 관리해야 합니다
     ALGORITHM: str = "HS512"
