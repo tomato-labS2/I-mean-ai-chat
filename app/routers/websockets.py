@@ -59,6 +59,7 @@ async def websocket_endpoint(
 ):
     current_connection_manager = websocket.app.state.connection_manager
     current_session_manager = websocket.app.state.session_manager
+    user_id: str | None = None # user_id 초기화
 
     try:
         print(f"[WS_ROUTER_DEBUG] Token verification attempt - Room: {room_id}, Token: {token[:20]}...")

@@ -209,7 +209,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-SECRET_KEY = "your-secret-key"  # 실제 사용 중인 값과 동일하게!
+SECRET_KEY = "RV4qqhylUFsMW8OwcFXjEd4NfyHiwIalp14j9H5pCPCDs/nFXKbTs+dOJQTxkIKPHJX0i78oae1ZLmRPjkd+LQ=="  # 실제 사용 중인 값과 동일하게!
 ALGORITHM = "HS256"
 
 @router.post("/", response_model=SessionResponse)
