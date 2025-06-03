@@ -9,7 +9,7 @@ from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
 
 from ..database import get_db
 from ..models.chat import Room, Session, ChatLog, SpeakerType, RoleType # User 모델은 여기서 직접 사용 안함
-from ..dependencies.auth_dep import verify_token
+from ..security import verify_token
 # SessionManager와 ConnectionManager 클래스 자체는 이 파일에서 직접 인스턴스화하지 않으므로 import 불필요
 # from ..session import SessionManager 
 # from ..connection_manager import ConnectionManager
