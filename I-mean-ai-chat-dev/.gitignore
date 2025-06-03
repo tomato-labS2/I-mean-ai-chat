@@ -1,0 +1,20 @@
+# Python 가상환경
+venv/
+
+# Python 캐시
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# 환경 설정
+.env*
+!*.env.sample   # 샘플 파일은 예외로 유지
+
+# IDE 관련 설정
+.vscode/
+.idea/
+
+# 기타 로그나 임시 파일
+*.log
+.DS_Store
