@@ -15,3 +15,7 @@ class ReportResponse(BaseModel):
 
     class Config:
         orm_mode = True
+        
+class ReportGenerateRequest(BaseModel):
+    session_id: int
+    room_id: int

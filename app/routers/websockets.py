@@ -9,7 +9,7 @@ from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
 
 from ..database import get_db
 from ..models.chat import Room, Session, ChatLog, SpeakerType, RoleType # User 모델은 여기서 직접 사용 안함
-from ..security import verify_token
+from ..dependencies.auth_dep import verify_token
 # SessionManager와 ConnectionManager 클래스 자체는 이 파일에서 직접 인스턴스화하지 않으므로 import 불필요
 # from ..session import SessionManager 
 # from ..connection_manager import ConnectionManager
@@ -57,6 +57,9 @@ async def websocket_endpoint(
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
+    await websocket.accept()  # ✅ 이 줄을 꼭 추가하세요!
+    print(f"[WS_ACCEPTED] WebSocket connection accepted - Room: {room_id}")
+    
     current_connection_manager = websocket.app.state.connection_manager
     current_session_manager = websocket.app.state.session_manager
 

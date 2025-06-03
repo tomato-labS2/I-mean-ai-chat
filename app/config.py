@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-load_dotenv(dotenv_path=".env.dev")
+load_dotenv(dotenv_path=".env")
 
 from pydantic_settings import BaseSettings
 from fastapi import WebSocket
@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     DB_URL: str  # 기본값 제거, 반드시 .env에서 읽음
     
     # JWT 설정
-    SECRET_KEY: str = "myVerySecureJwtSecretKeyThatShouldBeAtLeast256BitsLongForHS256Algorithm1234567890"  # 실제 운영환경에서는 환경변수로 관리해야 합니다
+    SECRET_KEY: str = "RV4qqhylUFsMW8OwcFXjEd4NfyHiwIalp14j9H5pCPCDs/nFXKbTs+dOJQTxkIKPHJX0i78oae1ZLmRPjkd+LQ=="  # 실제 운영환경에서는 환경변수로 관리해야 합니다
     ALGORITHM: str = "HS512"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24시간
     
