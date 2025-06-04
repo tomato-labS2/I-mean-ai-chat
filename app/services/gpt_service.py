@@ -14,6 +14,7 @@ class GPTService:
         system_message = (
             "당신은 입력된 커플 대화 내용을 분석하여 구조화된 리포트를 생성하는 AI 상담 전문가입니다. "
             "당신은 대화 내용을 저장하거나 기록하지 않으며, 오직 제공된 텍스트만을 기반으로 분석을 수행합니다. "
+            "AI 상담사에 대한 내용은 언급하지 않습니다. "
             "다음 항목에 따라 분석 결과를 정리해주세요."
         )
         messages = [{"role": "system", "content": system_message}]

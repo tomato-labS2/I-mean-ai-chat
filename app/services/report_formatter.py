@@ -16,7 +16,7 @@ class ReportFormatter:
         conversation_text = ""
         for log in chat_logs:
             speaker = "AI" if log.get("role") == "AI" else f"사용자 {log.get('user_id', '알 수 없음')}"
-            conversation_text += f"{speaker}: {log['content']}\\n"
+            conversation_text += f"{speaker}: {log['content']}\n"
         
         if not conversation_text.strip():
             return "요약할 대화 내용이 없습니다."
@@ -25,6 +25,7 @@ class ReportFormatter:
         다음은 '{session_topic_display}' 주제로 진행된 커플 상담 대화 내용입니다.
         이 대화의 핵심 내용을 간결하게 요약해주세요.
         사용자들이 어떤 이야기를 나누었고, 어떤 감정을 표현했는지, 그리고 대화의 전반적인 흐름이 어떠했는지 중심으로 요약합니다.
+        AI 상담사에 대한 내용은 언급하지 않습니다.
         분량은 2-3문장으로 작성해주세요.
 
         <대화 내용>
@@ -73,12 +74,8 @@ class ReportFormatter:
         if not session_topic_for_report: # 혹시 topic 정보가 없을 경우
             topic_name_display = "현재"
 
-        report_lines.append(f"🧩 세션 ID: {session_id_for_report} ({topic_name_display} 주제)")
-        
         # GPT를 사용한 요약 생성
         summary = await self._summarize_chat_logs_with_gpt(chat_logs, topic_name_display)
-        report_lines.append(f"💡 {topic_name_display} 대화 요약:\\n{summary}")
+        report_lines.append(f"💡 {topic_name_display} 대화 요약:\n{summary}")
 
-        report_lines.append("🔚 위 내용은 현재 세션 대화에 대한 간략한 요약입니다. 다음 대화에 참고해 주세요.")
-
-        return "\\n".join(report_lines)
+        return "\n".join(report_lines)
