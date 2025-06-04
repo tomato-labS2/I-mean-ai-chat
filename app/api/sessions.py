@@ -12,6 +12,7 @@ from jose import JWTError, jwt
 from ..database import get_db
 from ..models.models import Session as DBSession, Room, User, Message, Couple
 from .auth import get_current_user
+from app.config import settings
 
 router = APIRouter()
 
@@ -209,8 +210,8 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-SECRET_KEY = "RV4qqhylUFsMW8OwcFXjEd4NfyHiwIalp14j9H5pCPCDs/nFXKbTs+dOJQTxkIKPHJX0i78oae1ZLmRPjkd+LQ=="  # 실제 사용 중인 값과 동일하게!
-ALGORITHM = "HS256"
+SECRET_KEY = settings.JWT_SECRET_KEY  # 실제 사용 중인 값과 동일하게!
+ALGORITHM = settings.ALGORITHM
 
 @router.post("/", response_model=SessionResponse)
 async def create_session(

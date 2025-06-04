@@ -209,7 +209,10 @@ async def websocket_endpoint(
 
     finally:
         try:
-            await current_connection_manager.disconnect(room_id, user_id)
+            if 'user_id' in locals():
+                await current_connection_manager.disconnect(room_id, user_id)
+            else:
+                print("[WS_ROUTER_WARNING] user_id가 할당되지 않아 disconnect를 건너뜁니다.")
             remaining = len(current_connection_manager.get_active_connections_for_room(room_id))
             if remaining == 0:
                 session = await current_session_manager.get_current_session(room_id)

@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     REDIS_URL : str = "redis://localhost:6379"
 
     # JWT 설정
-    SECRET_KEY: str = "RV4qqhylUFsMW8OwcFXjEd4NfyHiwIalp14j9H5pCPCDs/nFXKbTs+dOJQTxkIKPHJX0i78oae1ZLmRPjkd+LQ=="  # 실제 운영환경에서는 환경변수로 관리해야 합니다
+    JWT_SECRET_KEY: str  # .env에서 읽어옴
     ALGORITHM: str = "HS512"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24시간
     

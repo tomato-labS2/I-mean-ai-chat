@@ -3,10 +3,11 @@ import websockets
 import json
 import jwt
 from datetime import datetime, timedelta
+from app.config import settings
 
 # 테스트용 JWT 토큰 생성
 def create_test_token(user_id: str):
-    secret_key = "RV4qqhylUFsMW8OwcFXjEd4NfyHiwIalp14j9H5pCPCDs/nFXKbTs+dOJQTxkIKPHJX0i78oae1ZLmRPjkd+LQ=="  # config.py의 SECRET_KEY와 동일하게 설정
+    secret_key = settings.JWT_SECRET_KEY
     payload = {
         "sub": user_id,
         "exp": datetime.utcnow() + timedelta(minutes=30)
