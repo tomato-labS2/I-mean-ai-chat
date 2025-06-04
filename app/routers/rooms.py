@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 # from typing import Optional # Optional 제거 또는 필요시 유지
 from pydantic import BaseModel
+from datetime import datetime # datetime 추가
 
 from ..database import get_db
 from ..models.chat import Room
@@ -23,6 +24,17 @@ class CreateRoomRequest(BaseModel):
                 "user_id": 123 # 문자열에서 숫자로 변경
             }
         }
+
+# Room 정보를 반환하기 위한 Pydantic 모델
+class RoomResponseModel(BaseModel):
+    room_id: int
+    room_name: str
+    couple_id: int
+    created_at: datetime
+    is_existing: bool
+
+    class Config:
+        from_attributes = True
 
 @router.post("/api/rooms", tags=["Rooms"])
 async def create_room(
@@ -92,4 +104,40 @@ async def create_room(
         raise he
     except Exception as e:
         print(f"Room creation error for user {request_data.user_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/api/rooms/couple/{couple_id}", response_model=RoomResponseModel, tags=["Rooms"])
+async def get_room_by_couple_id(
+    couple_id: int,
+    db: AsyncSession = Depends(get_db)
+    # 현재 create_room과 마찬가지로 JWT 토큰 인증은 생략된 상태입니다.
+    # 필요하다면 사용자 인증 로직을 추가해야 합니다.
+):
+    print(f"GET /api/rooms/couple/{couple_id} 호출됨")
+
+    # User 인증/권한 검증 로직 (현재 생략. 필요시 추가)
+    # 예: couple_membership 확인 등
+
+    query = select(Room).where(
+        Room.couple_id == couple_id,
+        Room.is_active == True  # 활성화된 방만 조회
+    )
+    result = await db.execute(query)
+    room = result.scalar_one_or_none()
+
+    if not room:
+        print(f"Couple ID {couple_id}에 해당하는 활성화된 방을 찾을 수 없습니다.")
+        raise HTTPException(
+            status_code=404,
+            detail="해당 커플의 채팅방을 찾을 수 없습니다."
+        )
+    
+    print(f"Couple ID {couple_id}에 대한 방 찾음: {room.room_id}, 이름: {room.room_name}")
+    # Room 모델에 created_at 필드가 datetime 타입으로 존재한다고 가정합니다.
+    return RoomResponseModel(
+        room_id=room.room_id,
+        room_name=room.room_name,
+        couple_id=room.couple_id,
+        created_at=room.created_at, # Room 모델에 created_at이 있어야 함
+        is_existing=True # 이 API는 방이 존재할 때만 200 응답
+    ) 
