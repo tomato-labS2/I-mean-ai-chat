@@ -57,13 +57,13 @@ class SessionManager:
             await asyncio.sleep(1)
             await self.broadcaster(room_id, {
                 "type": "system",
-                "content": f"""안녕하세요, 저는 여러분의 대화를 도와드릴 AI 커플 상담사입니다. 이 공간은 갈등을 원만하게 해결하기 위한 목적의 대화방입니다. \n두 분 모두 열린 마음으로 서로를 이해해보려는 노력을 해주셨으면 합니다. \n이번 대화는 총 2개의 토픽으로 나뉘며, 각 토픽에 대해 약 {settings.SESSION_DURATION_MINUTES}분간 자유롭게 대화하실 수 있습니다. \n다만, 원활한 진행을 위해 해당 토픽과 관련 없는 주제는 잠시 미뤄주시면 좋겠습니다. \n그럼 첫 번째 주제를 안내드릴게요.""",
+                "content": f"""안녕하세요, 저는 여러분의 대화를 도와드릴 AI 커플 상담사입니다😊 \n이 공간은 갈등을 원만하게 해결하기 위한 목적의 대화방입니다. \n대화는 '상황'과 '감정' 총 2개의 주제로 진행되며, 각 {settings.SESSION_DURATION_MINUTES}분간 서로 생각했던 부분을 자유롭게 나눠주시기 바랍니다. \n충분히 대화를 나누지 못했다면, 각 주제에 대해 최대 1번씩 시간 연장이 가능하니 참고 바랍니다. \n원활한 진행을 위해 해당 토픽과 관련 없는 대화는 잠시 미뤄주시고, 두 분 모두 열린 마음으로 서로를 이해해보려는 노력을 해주셨으면 합니다. \n그럼 첫 번째 주제를 안내드릴게요.""",
                 "timestamp": datetime.utcnow().isoformat()
             }, None)
 
             await self.broadcaster(room_id, {
                 "type": "session",
-                "content": "상황에 대한 대화를 시작하겠습니다.",
+                "content": "우선 갈등이 생긴 상황에 대해 나눠주세요. \n해당 상황에서 어떤 감정을 느꼇는지는 잠시 미뤄두고, 갈등이 생긴 이유에 대해 생각하며 대화를 이어나가주시기 바랍니다.",
                 "session_id": new_session.session_id,
                 "topic": new_session.topic,
                 "timestamp": datetime.utcnow().isoformat()
@@ -107,7 +107,7 @@ class SessionManager:
                         topic_display_name = "상황" if session_from_db.topic == "topic_1_situation" else "감정"
                         extension_prompt_message = {
                             "type": "system",
-                            "content": f"{topic_display_name}에 대한 대화 시간이 종료되었습니다. 계속하시겠습니까?",
+                            "content": f"{topic_display_name}에 대한 대화 시간이 종료되었습니다. 계속하시겠습니까? \n(한 분이라도 '네'를 선택하면 시간이 연장되니 참고 바랍니다.)",
                             "timestamp": datetime.utcnow().isoformat(),
                             "session_id": session_from_db.session_id
                         }
@@ -182,7 +182,7 @@ class SessionManager:
             traceback.print_exc()
 
     async def _transition_to_emotion_topic(self, room_id: int, db: AsyncSession, ended_situation_session: Session):
-        system_message_content = "이제 감정에 대한 대화를 시작하겠습니다. 상황에 대한 충분한 대화를 나누셨습니다. 이제 그 상황에서 느꼈던 감정들을 서로 공유해보는 시간을 가져보겠습니다."
+        system_message_content = "지금부터는 감정에 대한 내용을 나눠주세요. 그 상황에서 느꼈던 감정들을 서로 공유하고, 상대방을 이해하는 시간을 가져보겠습니다."
         ended_situation_session.end_time = datetime.utcnow()
         await db.commit()
         await db.refresh(ended_situation_session)
@@ -223,7 +223,7 @@ class SessionManager:
         await self.broadcaster(room_id, session_update_message, None)
 
     async def _end_chat_after_emotion_extension(self, room_id: int, db: AsyncSession, ended_emotion_session: Session):
-        system_message_content = "채팅을 종료합니다. 상황과 감정에 대한 충분한 대화를 나누셨습니다. 서로의 마음을 이해하고 공감하는 뜻깊은 시간이었습니다. 오늘의 대화가 두 분의 관계에 도움이 되기를 바랍니다."
+        system_message_content = "채팅 시간이 종료되었습니다. \n서로의 마음을 이해하고 공감하는 뜻깊은 시간이 되셨나요? \n오늘의 대화가 두 분의 관계에 도움이 되기를 바랍니다. \n좀 전의 대화내용을 기반으로 리포트가 생성될 예정이니 방을 나가지 마시고 잠시만 기다려주세요."
         
         ended_emotion_session.end_time = datetime.utcnow()
         await db.commit()
@@ -268,7 +268,7 @@ class SessionManager:
                     
                     print(f"[SESSION_MGR_DEBUG] Room {room_id} - Constructed report_items: {report_items}")
 
-                    final_report_string = "✨ 최종 상담 리포트 (GPT 기반) ✨\n\n" + "\n\n".join(report_items)
+                    final_report_string = "✨ 최종 상담 리포트 ✨\n\n" + "\n\n".join(report_items)
                     
                     print(f"[SESSION_MGR_DEBUG] Room {room_id} - Final report string length: {len(final_report_string)}")
 
@@ -327,7 +327,7 @@ class SessionManager:
             try:
                 if all_yes or any_yes:
                     topic_display = "상황" if session_to_modify.topic == "topic_1_situation" else "감정"
-                    system_message_content = f"{topic_display}에 대한 대화를 {settings.SESSION_DURATION_MINUTES}분 연장하겠습니다."
+                    system_message_content = f"{topic_display}에 대한 대화를 {settings.SESSION_DURATION_MINUTES}분 연장하겠습니다. \n더 충분히 대화를 나눠주세요."
                     session_to_modify.extension_used = True
                     session_to_modify.start_time = datetime.utcnow()
                     await db.commit()
