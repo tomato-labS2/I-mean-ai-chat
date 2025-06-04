@@ -27,7 +27,10 @@ session_manager: Optional[SessionManager] = None
 # CORS 허용 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://imean.shop", 
+        "https://d3v60vbjziepuv.cloudfront.net"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
