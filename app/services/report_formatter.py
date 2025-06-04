@@ -58,11 +58,11 @@ class ReportFormatter:
             str: 포맷된 리포트 메시지 (요약 위주)
         """
         report_lines = []
-        report_lines.append("📄 <AI 커플상담사 세션 리포트>\n")
+        report_lines.append("📄 <AI 커플상담사 세션 리포트>")
         
         if not chat_logs:
             report_lines.append("해당 세션의 대화 기록이 없어 리포트를 생성할 수 없습니다.")
-            return "\\n".join(report_lines)
+            return " ".join(report_lines)
 
         # 모든 로그가 동일한 세션 ID와 토픽을 가진다고 가정 (세션별 리포트이므로)
         # 실제로는 _send_session_report에서 특정 세션의 로그만 필터링해서 chat_logs로 전달됨
@@ -77,8 +77,8 @@ class ReportFormatter:
         
         # GPT를 사용한 요약 생성
         summary = await self._summarize_chat_logs_with_gpt(chat_logs, topic_name_display)
-        report_lines.append(f"\\n💡 {topic_name_display} 대화 요약:\\n{summary}")
+        report_lines.append(f"💡 {topic_name_display} 대화 요약:\\n{summary}")
 
-        report_lines.append("\\n\\n🔚 위 내용은 현재 세션 대화에 대한 간략한 요약입니다. 다음 대화에 참고해 주세요.")
+        report_lines.append("🔚 위 내용은 현재 세션 대화에 대한 간략한 요약입니다. 다음 대화에 참고해 주세요.")
 
         return "\\n".join(report_lines)

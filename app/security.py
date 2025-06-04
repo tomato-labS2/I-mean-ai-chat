@@ -1,6 +1,6 @@
 import jwt
 from fastapi import HTTPException
-from .config import settings
+from app.config import settings
 
 async def verify_token(token: str) -> dict:
     try:
@@ -14,7 +14,7 @@ async def verify_token(token: str) -> dict:
         try:
             payload = jwt.decode(
                 token, 
-                settings.SECRET_KEY, 
+                settings.JWT_SECRET_KEY, 
                 algorithms=[settings.ALGORITHM]
             )
             print(f"[SECURITY_DEBUG] Token decoded successfully. Payload: {payload}")

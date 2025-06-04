@@ -6,6 +6,7 @@ from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
+from app.config import settings
 
 from ..db_connect import get_db
 from ..models.models import User
@@ -13,8 +14,8 @@ from ..models.models import User
 router = APIRouter()
 
 # 보안 설정
-SECRET_KEY = "RV4qqhylUFsMW8OwcFXjEd4NfyHiwIalp14j9H5pCPCDs/nFXKbTs+dOJQTxkIKPHJX0i78oae1ZLmRPjkd+LQ=="  # 실제 운영 환경에서는 환경 변수로 관리해야 합니다
-ALGORITHM = "HS256"
+SECRET_KEY = settings.JWT_SECRET_KEY
+ALGORITHM = settings.ALGORITHM
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
