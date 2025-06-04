@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     # 세션 설정
     SESSION_DURATION_MINUTES: int = 1
 
+    # AI 상담사 설정
+    OPENAI_API_KEY: str = "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"
+
     # FastAPI WebSocket에서 ping 응답 유지용
     async def websocket_heartbeat(websocket: WebSocket):
         while True:

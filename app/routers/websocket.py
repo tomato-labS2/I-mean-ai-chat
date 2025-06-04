@@ -11,6 +11,7 @@ from ..database import get_db
 from ..models.chat import Room, Session, ChatLog, SpeakerType, RoleType
 from ..security import verify_token
 from app.services.emotion_service import EmotionService
+# from openai import AsyncOpenAI # EmotionService가 직접 AsyncOpenAI를 임포트하므로 여기서 필요X
 
 router = APIRouter()
 
@@ -29,7 +30,12 @@ async def websocket_endpoint(
     #     await websocket.close(code=1011, reason="Internal server error: Redis not configured")
     #     return
 
-    emotion_service = EmotionService()
+    # GPTService에서 OpenAI 클라이언트 가져오기
+    gpt_service = websocket.app.state.gpt_service
+    openai_client = gpt_service.client if gpt_service else None
+
+    # EmotionService 초기화 시 OpenAI 클라이언트 주입
+    emotion_service = EmotionService(openai_client=openai_client)
 
     try:
         payload = await verify_token(token)
