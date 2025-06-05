@@ -68,7 +68,7 @@ class EmotionService:
         if not detected:
             return None
 
-        prompt = f"당신의 역할은 AI상담사입니다. 상황에 대한 대화를 나누는 중에 메시지에서 감정 키워드 \'{detected}\'가 감지되었습니다.'감정이 담긴 키워드가 감지되었습니다. 현재는 상황에 더 집중해주세요\'라는 메세지의 AI 답변을 생성해 주세요: {message}"
+        prompt = f"상황에 대한 대화를 나누는 중에 메시지에서 감정 키워드 \'{detected}\'가 감지되었습니다.'감정이 담긴 키워드가 감지되었습니다. 현재는 상황에 더 집중해주세요\'라는 메세지의 AI 답변을 생성해 주세요: {message}"
         gpt_response = await self.call_gpt(prompt)
         print(f"[EMOTION_SERVICE] GPT 응답 (토픽: {session_topic}): {gpt_response}")
         return gpt_response
