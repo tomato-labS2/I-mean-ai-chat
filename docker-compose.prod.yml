@@ -1,0 +1,105 @@
+version: '3.8'
+
+services:
+  # MySQL 데이터베이스
+  db:
+    image: mysql:8.0
+    container_name: imean-mysql-prod
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: i_mean
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - imean-data-prod:/var/lib/mysql
+    networks:
+      - imean-network-prod
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+
+  # Python FastAPI 서버
+  python-api:
+    build:
+      context: ./I-mean-ai-chat-newdev
+      dockerfile: Dockerfile
+    container_name: imean-python-api-prod
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_URL=mysql+aiomysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/i_mean
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - LOG_LEVEL=INFO
+    depends_on:
+      - db
+    networks:
+      - imean-network-prod
+    restart: unless-stopped
+
+  # Java Spring Boot 서버
+  java-api:
+    build:
+      context: ./I-mean-backend-main
+      dockerfile: Dockerfile
+    container_name: imean-java-api-prod
+    ports:
+      - "8080:8080"
+    environment:
+      - DEV_DB_URL=jdbc:mysql://db:3306/i_mean
+      - DEV_DB_USERNAME=${MYSQL_USER}
+      - DEV_DB_PASSWORD=${MYSQL_PASSWORD}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - PROFILE=prod
+    depends_on:
+      - db
+    networks:
+      - imean-network-prod
+    restart: unless-stopped
+
+  # Next.js 프론트엔드
+  frontend:
+    build:
+      context: ./I-mean-frontend-main
+      dockerfile: Dockerfile
+    container_name: imean-frontend-prod
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://${SERVER_IP}:8080/api
+      - NEXT_PUBLIC_PYTHON_API_URL=http://${SERVER_IP}:8000
+      - NODE_ENV=production
+    depends_on:
+      - java-api
+      - python-api
+    networks:
+      - imean-network-prod
+    restart: unless-stopped
+
+  # Nginx 리버스 프록시 (선택사항)
+  nginx:
+    image: nginx:alpine
+    container_name: imean-nginx-prod
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - frontend
+      - java-api
+      - python-api
+    networks:
+      - imean-network-prod
+    restart: unless-stopped
+
+volumes:
+  imean-data-prod:
+
+networks:
+  imean-network-prod:
+    driver: bridge

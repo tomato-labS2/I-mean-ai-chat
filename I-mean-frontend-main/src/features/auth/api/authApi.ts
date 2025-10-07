@@ -1,5 +1,6 @@
 import type { LoginFormData, RegisterFormData, AuthApiResponse, User } from "@/features/auth/types"
 import { tokenStorage } from "@/features/auth/utils/tokenStorage"
+import { hashPassword } from "@/lib/security"
 
 // const API_BASE = "http://localhost:8080/api"
 const API_BASE = "http://localhost:8080/api"
@@ -7,12 +8,15 @@ const API_BASE = "http://localhost:8080/api"
 
 export const authApi = {
   login: async (data: LoginFormData): Promise<AuthApiResponse["data"]> => {
+    // 비밀번호 해시화 (클라이언트 사이드 보안 강화)
+    const hashedPassword = await hashPassword(data.password);
+    
     const res = await fetch(`${API_BASE}/member/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         memberEmail: data.email,
-        memberPass: data.password,
+        memberPass: hashedPassword,
       }),
     })
     const result: AuthApiResponse = await res.json()

@@ -1,0 +1,15 @@
+# Java .dockerignore
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+.DS_Store
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+logs/
+*.log
+.env

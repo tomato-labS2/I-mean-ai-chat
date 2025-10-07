@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { useLogin } from "@/features/auth/hooks/useLogin"
 import { Eye, EyeOff, Lock } from "lucide-react"
+import { sanitizeInput, isValidEmail } from "@/lib/security"
 
 export function LoginForm() {
   const { login, isLoading } = useLogin()
@@ -18,7 +19,20 @@ export function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await login(formData)
+    
+    // 입력 데이터 정제 및 검증
+    const sanitizedData = {
+      email: sanitizeInput(formData.email),
+      password: sanitizeInput(formData.password)
+    }
+    
+    // 이메일 형식 검증
+    if (!isValidEmail(sanitizedData.email)) {
+      alert('올바른 이메일 형식이 아닙니다.')
+      return
+    }
+    
+    await login(sanitizedData)
   }
 
   return (

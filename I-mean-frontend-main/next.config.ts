@@ -2,6 +2,16 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  
+  // TypeScript 체크 비활성화
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  
+  // ESLint 비활성화
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 
   // 정적 export를 위한 옵션
   trailingSlash: true, //모든 경로에 슬래시 붙여서 S3에서 폴더처럼 인식

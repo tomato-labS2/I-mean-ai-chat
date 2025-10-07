@@ -1,0 +1,42 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+
+spring:
+  ##
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}  # 🔐 환경변수 사용
+    password: ${MAIL_PASSWORD}  # 🔐 환경변수 사용
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+    auth-code-expiration-millis: 1800000  # 30 * 60 * 1000 == 30분
+    ##
+  datasource:
+    url: ${DEV_DB_URL:jdbc:mysql://localhost:9915/i_mean} # 개발용 DB URL
+    username: ${DEV_DB_USERNAME:root}
+    password: ${DEV_DB_PASSWORD:1234}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: ${DEV_DB_DDL_AUTO:create}
+    show-sql: ${DEV_DB_SHOW_SQL:false}
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+    properties:
+      hibernate:
+        format_sql: ${DEV_DB_FORMAT_SQL:true}
+        use_sql_comments: ${DEV_DB_USE_SQL_COMMENTS:true}
+        dialect: org.hibernate.dialect.MySQL8Dialect
+jwt:
+  secret-key: ${JWT_SECRET_KEY}  # ⚠️ 환경변수에서 가져옴
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:3600000}    # 1시간
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800000} # 7일

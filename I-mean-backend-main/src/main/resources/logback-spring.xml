@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- 콘솔 출력 설정 -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>
+                [%d{yyyy-MM-dd HH:mm:ss}] %highlight(%-5level) [%thread] %cyan(%logger{36}) : %msg%n
+            </pattern>
+        </encoder>
+    </appender>
+
+    <!-- 🔹 dev 환경 전용 로그 설정 -->
+    <springProfile name="dev,test">
+        <logger name="jdbc.sqlonly" level="DEBUG" />
+        <logger name="jdbc.sqltiming" level="DEBUG" />
+        <logger name="jdbc.audit" level="WARN" />
+        <logger name="jdbc.resultset" level="ERROR" />
+
+        <root level="INFO">
+            <appender-ref ref="STDOUT"/>
+        </root>
+    </springProfile>
+
+    <!-- 🔸 prod 환경 전용 로그 설정 -->
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="STDOUT"/>
+        </root>
+    </springProfile>
+
+</configuration>

@@ -6,6 +6,7 @@ import { authApi } from "@/features/auth/api/authApi"
 import type { LoginFormData } from "@/features/auth/types"
 import { useToast } from "@/components/common/Toast"
 import { tokenStorage } from "@/features/auth/utils/tokenStorage"
+import { enhanceSessionSecurity } from "@/lib/security"
 
 export function useLogin() {
   const [isLoading, setIsLoading] = useState(false)
@@ -16,6 +17,10 @@ export function useLogin() {
     setIsLoading(true)
     try {
       console.log("로그인 시도 중...", formData.email)
+      
+      // 세션 보안 강화 활성화
+      enhanceSessionSecurity()
+      
       const loginResult = await authApi.login(formData)
       console.log("로그인 API 성공:", loginResult)
       
